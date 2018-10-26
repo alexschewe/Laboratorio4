@@ -1,0 +1,237 @@
+
+/*** BeginHeader */
+#use Utilities.LIB
+/*
+#define TCPCONFIG 0
+#define USE_ETHERNET		1
+#define MY_IP_ADDRESS "10.10.6.100"
+#define MY_NETMASK "255.255.255.0"
+#define MY_GATEWAY "10.10.6.2"
+
+
+
+#use "dcrtcp.lib"
+*/
+#define STDIO_ENABLE_LONG_STRINGS
+
+#define INPUT_DIR				0
+#define OUTPUT_DIR				1
+
+#define STX 					0x02
+#define ETX 					0x03
+
+#define CINBUFSIZE 				127
+#define COUTBUFSIZE 			127
+
+#define ERROR					69
+
+#define PIC_COM_TIMEOUT			100
+#define PIC_MAX_MSG_LENGTH		29
+#define PIC_PROTOCOL_BAUDRATE	9600
+
+#define CANTIDAD_VECES 				10
+
+//#define TCPCONFIG 0
+
+
+/*
+#memmap xmem
+#use "dcrtcp.lib"
+*/
+#define PORT 7
+
+//tcp_Socket echosock;
+
+enum portName
+{
+	PORT_UNDEF = -1,
+	PORT_A,
+	PORT_B,
+	PORT_C,
+	PORT_D,
+	PORT_E,
+	PORT_F
+};
+
+enum bitNumber
+{
+	BIT_UNDEF = -1,
+	BIT_0,
+	BIT_1,
+	BIT_2,
+	BIT_3,
+	BIT_4,
+	BIT_5,
+	BIT_6,
+	BIT_7
+};
+enum Led_Numb
+{
+	LED_0,
+	LED_1,
+	LED_2,
+	LED_3,
+	LED_4,
+	LED_5,
+	LED_6,
+	LED_7,
+};
+/*** EndHeader */
+
+/*** BeginHeader HW_init */
+void HW_init( void );
+/*** EndHeader */
+void HW_init( void )
+{
+	// PORT A
+	WrPortI(SPCR, &SPCRShadow, 0x084);		//PortA (Salidas)
+
+	// PORT B
+	BitWrPortI(PBDDR, &PBDDRShadow, INPUT_DIR, BIT_2); 	//Entrada 0
+	BitWrPortI(PBDDR, &PBDDRShadow, INPUT_DIR, BIT_3); 	//Entrada 1
+	BitWrPortI(PBDDR, &PBDDRShadow, INPUT_DIR, BIT_4); 	//Entrada 2
+	BitWrPortI(PBDDR, &PBDDRShadow, INPUT_DIR, BIT_5); 	//Entrada 3
+
+	//PORT E --------------------------------------------------------------------------------------------------------------
+	BitWrPortI(PEDDR, &PEDDRShadow, OUTPUT_DIR, BIT_5); //Entrada 5, Led Rojo
+	//---------------------------------------------------------------------------------------------------------------------
+	// PORT F
+	BitWrPortI(PFDDR, &PFDDRShadow, INPUT_DIR, BIT_4); 	//Entrada 4
+	BitWrPortI(PFDDR, &PFDDRShadow, INPUT_DIR, BIT_5); 	//Entrada 5
+	BitWrPortI(PFDDR, &PFDDRShadow, INPUT_DIR, BIT_6); 	//Entrada 6
+	BitWrPortI(PFDDR, &PFDDRShadow, INPUT_DIR, BIT_7); 	//Entrada 7
+
+	// Puerto Serie PIC
+	/*serCopen(PIC_PROTOCOL_BAUDRATE);
+
+	printf("Iniciando Socket\n");
+	sock_init();
+	printf("Iniciado\n");*/
+	}
+
+/*** BeginHeader IO_getInput */
+char IO_getInput( enum portName p_port, enum bitNumber p_pin );
+/*** EndHeader */
+char IO_getInput( enum portName p_port, enum bitNumber p_pin )
+{
+	enum portName port;
+
+	switch( p_port )
+	{
+		case( PORT_A ):
+			port = PADR;
+			break;
+		case( PORT_B ):
+			port = PBDR;
+			break;
+		case( PORT_C ):
+			port = PCDR;
+			break;
+		case( PORT_D ):
+			port = PDDR;
+			break;
+		case( PORT_E ):
+			port = PEDR;
+			break;
+		case( PORT_F ):
+			port = PFDR;
+			break;
+	}
+
+	return (char)BitRdPortI( port, p_pin );
+}
+
+/*** BeginHeader IO_setOutput */
+void IO_setOutput( enum portName p_port, enum bitNumber p_pin, unsigned char p_state);
+/*** EndHeader */
+void IO_setOutput( enum portName p_port, enum bitNumber p_pin, unsigned char p_state )
+{
+	char *shadowPtr;
+	enum portName port;
+
+	switch( p_port )
+	{
+		case( PORT_A ):
+			port = PADR;
+			shadowPtr = &PADRShadow;
+			break;
+		case( PORT_B ):
+			port = PBDR;
+			shadowPtr = &PBDRShadow;
+			break;
+		case( PORT_C ):
+			port = PCDR;
+			shadowPtr = &PCDRShadow;
+			break;
+		case( PORT_D ):
+			port = PDDR;
+			shadowPtr = &PDDRShadow;
+			break;
+		case( PORT_E ):
+			port = PEDR;
+			shadowPtr = &PEDRShadow;
+			break;
+		case( PORT_F ):
+			port = PFDR;
+			shadowPtr = &PFDRShadow;
+			break;
+	}
+
+	BitWrPortI( port, shadowPtr, p_state, p_pin );
+}
+
+/*** BeginHeader IO_getAnalogInput */
+int IO_getAnalogInput( unsigned char p_input );
+/*** EndHeader */
+int IO_getAnalogInput( unsigned char p_input )
+{
+	char datos[PIC_MAX_MSG_LENGTH];
+	char crc, i;
+	int retVal;
+	unsigned long timeout;
+
+	if( p_input > 1 )
+	{
+		return -1; // Solamente hay entradas 0 y 1
+	}
+
+	serCrdFlush();
+	serCwrFlush();
+
+	serCputc(STX);
+	serCputc('0');
+	serCputc('1');
+	serCputc(ETX);
+	serCputc(STX + ETX + '1' + '0');
+
+	timeout = MS_TIMER + PIC_COM_TIMEOUT;
+	while( (serCrdUsed() != PIC_MAX_MSG_LENGTH) && ((long)(MS_TIMER-timeout) < 0) );
+	if( serCrdUsed() != PIC_MAX_MSG_LENGTH )
+	{
+		return -2;
+	}
+
+	serCread( datos, PIC_MAX_MSG_LENGTH, 500 );
+
+	crc = 0;
+	for( i=0; i<PIC_MAX_MSG_LENGTH-1; i++ )
+	{
+		crc += datos[i];
+	}
+	if( crc != datos[PIC_MAX_MSG_LENGTH-1] )
+	{
+		return -3;
+	}
+
+	if (datos[0] != STX || datos[1] != '0' || datos[2] != '1' || datos[27] != ETX)
+   {
+		return -4;
+   }
+
+	retVal = UT_ASCIItoCharNum(datos[p_input * 3 + 3]) * 256;
+	retVal += UT_ASCIItoCharNum(datos[p_input * 3 + 4]) * 16;
+	retVal += UT_ASCIItoCharNum(datos[p_input * 3 + 5]);
+
+	return retVal;
+}
+

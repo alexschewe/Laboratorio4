@@ -21,24 +21,19 @@
 
 
 /*** BeginHeader LED_Prender_Led_frec_cant_veces  */
-cofunc void LED_Prender_Led_frec_cant_veces(char led, int frec);
+void LED_Prender_Led_frec_cant_veces(char led, int frec);
 /*** EndHeader */
-cofunc void LED_Prender_Led_frec_cant_veces(char led, int frec)
+void LED_Prender_Led_frec_cant_veces(char led, int frec)
 {
 
 		int i, i_1;
 		frec = 1000/frec;
-		
 		for (i=0;i<VECES_LED;i++)
 		{
 			LED_SET(led);
-			i_1 = i;
-			waitfor(DelayMs(frec));
-			i = i_1;
+			OSTimeDlyHMSM (0,0,0,frec);
 			LED_RESET(led);
-			i_1 = i;
-			waitfor(DelayMs(frec));
-			i = i_1;
+			OSTimeDlyHMSM (0,0,0,frec);
 		}
 	return;
 }

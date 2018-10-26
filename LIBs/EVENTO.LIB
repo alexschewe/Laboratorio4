@@ -49,6 +49,7 @@ void EVENTO_Menu(int (*func_get)(),void (*func_print)(),struct Event *puntero_ev
 	char tarea_s[2];
 	char buffer_print[256];
     char eventos_guardados;
+	char *semaforo_error;
 
 	error = 0;
 	error_conexion = 0;
@@ -63,20 +64,17 @@ void EVENTO_Menu(int (*func_get)(),void (*func_print)(),struct Event *puntero_ev
 		(*func_print)("6 = Consultar entradas analogicas\n\t",ptr);
 		if (n == ETH)
 		{
-			error_conexion = (*func_get)(tarea_s,ptr);//------
+			error_conexion = (*func_get)(tarea_s,ptr);
 			while ( error_conexion == 0 )
 			{
 				OSTimeDlyHMSM (0,0,0,100);
 				error_conexion = (*func_get)(tarea_s,ptr);
-				printf("1111 - %d\n",error_conexion);
 			}
-			printf("2222 - %d\n",error_conexion);
 			if (error_conexion == ERROR_CONEXION)
 			{
-				printf("5555 - %d\n",error_conexion);
 				OSTimeDlyHMSM (0,0,0,200);
 				return ;
-			}	
+			}
 		}
 		else
 		{
@@ -98,7 +96,9 @@ esto me devuelve un valor y ese valor se lo asigno al RT, la funcion devuelve 0,
 					{
 						return;
 					}
+					OSSemPend(Semaforo,T_ESPERA_SEM,semaforo_error)  ;
 					write_rtc (time);
+					OSSemPost(Semaforo);
 					(*func_print)("\n HORA CONFIGURADA\n",ptr);
 					time = read_rtc();
 					mktm ( &tiempo_actual, time);
@@ -128,7 +128,9 @@ nuevamente, se utiliza la varibale hay_lugar para determinar si se puede agregar
 					{
 						if ( puntero_evento->numero == VACIO) //Cuando el lugar esta libre anoto el evento
 						{
+							OSSemPend(Semaforo,T_ESPERA_SEM,semaforo_error)  ;
 							puntero_evento->numero  = i; //Lo pongo en un valor distinto asi no me lo modifica otro usuario
+							OSSemPost(Semaforo);
 							time =  EVENTO_WRITE_Time( func_get,  func_print, n,ptr);
 							if (time ==ERROR)
 							{
@@ -149,15 +151,17 @@ nuevamente, se utiliza la varibale hay_lugar para determinar si se puede agregar
 							{
 								if (n == ETH)
 								{
-									while (error_conexion == (*func_get)(x_s,ptr))
+									error_conexion = (*func_get)(x_s,ptr);
+									while ( error_conexion == 0 )
 									{
 										OSTimeDlyHMSM (0,0,0,100);
 										error_conexion = (*func_get)(x_s,ptr);
 									}
 									if (error_conexion == ERROR_CONEXION)
 									{
-										return;
-									}	
+										OSTimeDlyHMSM (0,0,0,200);
+										return ;
+									}
 								}
 								else
 								{
@@ -184,15 +188,17 @@ nuevamente, se utiliza la varibale hay_lugar para determinar si se puede agregar
 							{
 								if (n == ETH)
 								{
-									while (error_conexion == (*func_get)(w_s,ptr))
+									error_conexion = (*func_get)(w_s,ptr);
+									while ( error_conexion == 0 )
 									{
 										OSTimeDlyHMSM (0,0,0,100);
 										error_conexion = (*func_get)(w_s,ptr);
 									}
 									if (error_conexion == ERROR_CONEXION)
 									{
-										return;
-									}	
+										OSTimeDlyHMSM (0,0,0,200);
+										return ;
+									}
 								}
 								else
 								{
@@ -255,16 +261,18 @@ exede la cantidad de eventos maxima (CANTIDAD_EVENTOS).*/
 							(*func_print)(" \n Elija el numero del evento a borrar",ptr);
 							(*func_get)(borrar);
 							if (n == ETH)
-								{
-									while (error_conexion == (*func_get)(borrar,ptr))
+								{	
+									error_conexion = (*func_get)(borrar,ptr);
+									while ( error_conexion == 0 )
 									{
 										OSTimeDlyHMSM (0,0,0,100);
 										error_conexion = (*func_get)(borrar,ptr);
 									}
 									if (error_conexion == ERROR_CONEXION)
 									{
-										return;
-									}	
+										OSTimeDlyHMSM (0,0,0,200);
+										return ;
+									}
 								}
 								else
 								{
@@ -400,15 +408,17 @@ unsigned long int	EVENTO_WRITE_Time(int (*func_get)(), void (*func_print)(), int
 			(*func_print) ("Ingrese Ano \n",ptr);
 			if (n == ETH)
 			{
-				while (error_conexion == (*func_get)(ano,ptr))
+				error_conexion = (*func_get)(ano,ptr);
+				while ( error_conexion == 0 )
 				{
 					OSTimeDlyHMSM (0,0,0,100);
 					error_conexion = (*func_get)(ano,ptr);
 				}
 				if (error_conexion == ERROR_CONEXION)
 				{
-					return ERROR;
-				}	
+					OSTimeDlyHMSM (0,0,0,200);
+					return ERROR ;
+				}
 			}
 			else
 			{
@@ -435,22 +445,24 @@ unsigned long int	EVENTO_WRITE_Time(int (*func_get)(), void (*func_print)(), int
 			(*func_print) ("Ingrese Mes \n",ptr);
 			if (n == ETH)
 			{
-				while (error_conexion == (*func_get)(mes,ptr))
+				error_conexion = (*func_get)(mes,ptr);
+				while ( error_conexion == 0 )
 				{
 					OSTimeDlyHMSM (0,0,0,100);
 					error_conexion = (*func_get)(mes,ptr);
 				}
 				if (error_conexion == ERROR_CONEXION)
 				{
+					OSTimeDlyHMSM (0,0,0,200);
 					return ERROR;
-				}	
+				}
 			}
 			else
 			{
 				(*func_get)(mes,ptr);
 			}
 			error_conexion = 0;
-			
+
 			if (atoi (mes) <= MAX_MES && atoi (mes)>= MIN_MES)
 			{
 				tiempo.tm_mon = atoi (mes);
@@ -477,15 +489,17 @@ unsigned long int	EVENTO_WRITE_Time(int (*func_get)(), void (*func_print)(), int
 			(*func_print) ("Ingrese Dia \n",ptr);
 			if (n == ETH)
 			{
-				while (error_conexion == (*func_get)(dia,ptr))
+					error_conexion = (*func_get)(dia,ptr);
+				while ( error_conexion == 0 )
 				{
 					OSTimeDlyHMSM (0,0,0,100);
 					error_conexion = (*func_get)(dia,ptr);
 				}
 				if (error_conexion == ERROR_CONEXION)
 				{
-					return ERROR;
-				}	
+					OSTimeDlyHMSM (0,0,0,200);
+					return ERROR ;
+				}
 			}
 			else
 			{
@@ -524,15 +538,17 @@ unsigned long int	EVENTO_WRITE_Time(int (*func_get)(), void (*func_print)(), int
 			(*func_print) ("Ingrese hora \n",ptr);
 			if (n == ETH)
 			{
-				while (error_conexion == (*func_get)(hora,ptr))
+				error_conexion = (*func_get)(hora,ptr);
+				while ( error_conexion == 0 )
 				{
 					OSTimeDlyHMSM (0,0,0,100);
 					error_conexion = (*func_get)(hora,ptr);
 				}
 				if (error_conexion == ERROR_CONEXION)
 				{
+					OSTimeDlyHMSM (0,0,0,200);
 					return ERROR;
-				}	
+				}
 			}
 			else
 			{
@@ -564,15 +580,17 @@ unsigned long int	EVENTO_WRITE_Time(int (*func_get)(), void (*func_print)(), int
 			(*func_print) ("Ingrese Minutos \n",ptr);
 			if (n == ETH)
 			{
-				while (error_conexion == (*func_get)(minutos,ptr))
+					error_conexion = (*func_get)(minutos,ptr);
+				while ( error_conexion == 0 )
 				{
 					OSTimeDlyHMSM (0,0,0,100);
 					error_conexion = (*func_get)(minutos,ptr);
 				}
 				if (error_conexion == ERROR_CONEXION)
 				{
+					OSTimeDlyHMSM (0,0,0,200);
 					return ERROR;
-				}	
+				}
 			}
 			else
 			{

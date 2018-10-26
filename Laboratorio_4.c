@@ -9,7 +9,7 @@ int get_ethernet(char *p_string, tcp_Socket* ptr );
 void MENU_USUARIO(void);
 void MENU_ETHERNET(void *data);
 void TICKS(void *data);
-//void ALARMA (void);
+void ALARMA (void);
 struct Event evento [CANTIDAD_EVENTOS+1];
 
 
@@ -21,17 +21,19 @@ void main()
 	{
 		evento[i].numero = VACIO;
     }
-
+	OS_EVENT* Semaforo;
 	OSInit();
 
 	OSTaskCreate(LED_OS_Prender_Led_Rojo,NULL,TASK_STK_SIZE_256,PRIO_LED);
 	OSTaskCreate(MENU_USUARIO,NULL,TASK_STK_SIZE_1024,PRIO_USUARIO_PC);
-	//OSTaskCreate(ALARMA,NULL,TASK_STK_SIZE_256,PRIO_ALARMA);
+	OSTaskCreate(ALARMA,NULL,TASK_STK_SIZE_1024,PRIO_ALARMA);
 	for (i = 0 ; i<CANTIDAD_USUARIOS; i++)
 	{
 		OSTaskCreate(TICKS,&echosock[i],TASK_STK_SIZE_2048,PRIO_TICKS);
 		OSTaskCreate(MENU_ETHERNET,&echosock[i],TASK_STK_SIZE_2048,PRIO_USUARIO_ETH);
 	}
+	Semaforo = OSSemCreat(1);
+	
 	OSStart();
 
 }
@@ -99,7 +101,7 @@ void MENU_ETHERNET(void *data)
 void TICKS(void *data)
 {
 	tcp_Socket *ptr;
-	
+
 	ptr = (tcp_Socket*)data;
 	while(1)
 	{
@@ -111,25 +113,25 @@ void TICKS(void *data)
 		}
 		printf("Usuario Conectado\n");
 		sock_mode(ptr,TCP_MODE_ASCII);
-		while (tcp_tick(ptr))
+		while (tcp_tick(ptr)!=0)
 		{
 			OSTimeDlyHMSM (0,0,0,100);
 		}
 	}
 }
-/*
+
 void ALARMA (void)
 {
 	unsigned long int time_2;
 	int i;
 	char led;
 	char frecuencia;
-	time_2 = read_rtc();
-
-
+	char buffer_print[256];
+       while (1)
+       {
 			for(i = 0; i<CANTIDAD_EVENTOS;i++)
 			{
-
+            	time_2 = read_rtc();
 				if (evento[i].numero != VACIO)
 				{
 					if (evento[i].time == time_2)
@@ -138,9 +140,13 @@ void ALARMA (void)
 						print_consola(buffer_print,NULL);
 						led = evento[i].param;
 						frecuencia = evento[i].frec;
-						wfd LED_Prender_Led_frec_cant_veces(led,  frecuencia);
+						LED_Prender_Led_frec_cant_veces(led,  frecuencia);
 						evento[i].numero = VACIO;
+
+
 					}
 				}
+           	OSTimeDlyHMSM (0,0,0,100);
 			}
-}*/
+		}
+}
