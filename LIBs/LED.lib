@@ -1,0 +1,57 @@
+/*** BeginHeader */
+
+#use IO.LIB
+#define VECES_LED   	20
+#define RED_LED			5
+
+#define LED_PORT		PORT_A
+#define RED_LED_PORT	PORT_E
+
+
+#define LED_OFF			0
+#define LED_ON			1
+
+#define LED_SET(x)   	IO_setOutput( LED_PORT, x, LED_ON)
+#define LED_RESET(x) 	IO_setOutput( LED_PORT, x, LED_OFF)
+
+#define RED_LED_SET(void)   	IO_setOutput( RED_LED_PORT, RED_LED, LED_ON)
+#define RED_LED_RESET(void) 	IO_setOutput( RED_LED_PORT, RED_LED, LED_OFF)
+
+/*** EndHeader */
+
+
+/*** BeginHeader LED_Prender_Led_frec_cant_veces  */
+cofunc void LED_Prender_Led_frec_cant_veces(char led, int frec);
+/*** EndHeader */
+cofunc void LED_Prender_Led_frec_cant_veces(char led, int frec)
+{
+
+		int i, i_1;
+		frec = 1000/frec;
+		
+		for (i=0;i<VECES_LED;i++)
+		{
+			LED_SET(led);
+			i_1 = i;
+			waitfor(DelayMs(frec));
+			i = i_1;
+			LED_RESET(led);
+			i_1 = i;
+			waitfor(DelayMs(frec));
+			i = i_1;
+		}
+	return;
+}
+/*** BeginHeader LED_OS_Prender_Led_Rojo  */
+void LED_OS_Prender_Led_Rojo(void);
+/*** EndHeader */
+void LED_OS_Prender_Led_Rojo(void)
+{
+	while(1)
+	{
+		RED_LED_SET();
+		OSTimeDlyHMSM (0,0,0,400);
+		RED_LED_RESET();
+		OSTimeDlyHMSM (0,0,0,800);
+	}
+}

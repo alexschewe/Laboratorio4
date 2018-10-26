@@ -1,0 +1,8 @@
+/*** BeginHeader */
+
+#use IO.LIB
+
+#define BTN_GET(x)			IO_getInput( (x>3)?PORT_F:PORT_B, (x>3)?x:(x+2) )
+#define BTN_IsPRESSED(x)	((BTN_GET(x)==0)?1:0)
+
+/*** EndHeader */

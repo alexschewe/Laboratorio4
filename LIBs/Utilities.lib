@@ -1,0 +1,104 @@
+/*** BeginHeader */
+#use IO.lib
+
+#define CONSOLA				0
+#define ETH				1
+#define MAX_ANO						2100
+#define MIN_ANO                     2018
+#define MAX_MES						12
+#define MIN_MES						1
+#define MAX_DIA						31
+#define MIN_DIA						1
+#define MAX_HORA					23
+#define MIN_HORA					0
+#define MAX_MINSEC					59
+#define MIN_MINSEC					0
+/*** EndHeader */
+
+
+/*** BeginHeader UT_delay */
+void UT_delay( long p_ms );
+/*** EndHeader */
+void UT_delay( long p_ms )
+{
+	long timer;
+
+	timer = MS_TIMER + p_ms;
+
+	while ((long)(MS_TIMER - timer) < 0);
+}
+
+/*** BeginHeader UT_ASCIItoCharNum */
+char UT_ASCIItoCharNum( char p_input );
+/*** EndHeader */
+char UT_ASCIItoCharNum( char p_input )
+{
+	if( p_input >= '0' && p_input <= '9' )
+	{
+		return (p_input-'0');
+	}
+	else if( p_input >= 'A' && p_input <= 'F')
+	{
+		return (p_input + 10 - 'A');
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+
+//-------------------CHEQUEAR DIA (31-30-29)----------------------------------------------------
+/*La funcion devuelve uno si existe ese dia en ese mes, devuelve 0 si no es posible
+la funcion chequea por medio de un switch que mes es, y dentro de este mes chequea
+la cantidad de dias maximos, tambien chequea si ese ano es bisiesto, asi se si
+febrero tiene 29 dias o 28 */
+/*** BeginHeader UT_CHEQUEO_DIA  */
+int UT_CHEQUEO_DIA (char tm_mon,char tm_mday,char tm_year);
+/*** EndHeader */
+int UT_CHEQUEO_DIA (char tm_mon,char tm_mday, char tm_year) //DEVUELVE UNO SI ESTA BIEN, 0 SI ESTA MAL
+{
+	switch (tm_mon)             //fijo si el dia es valido en ese mes
+	{
+		case (1):
+		case (3):
+		case (5):
+		case (7):
+		case (8):
+		case (10):
+		case (12):
+		if (tm_mday <= 31)
+		{
+			return 1 ;
+		}
+			return 0;
+		case (4):
+		case (6):
+		case (9):
+		case (11):
+		if ( tm_mday <= 30)
+		{
+			return 1 ;
+		}
+			return 0;
+
+		case (2):
+
+		if((tm_year % 4 == 0 && tm_year % 100 != 0) || tm_year % 400 == 0)
+		{
+				if ( tm_mday <= 29)
+				{
+					return 1 ;
+				}
+		}
+		if ( tm_mday <= 28)
+		{
+			return 1 ;
+		}
+			return 0;
+
+
+	}
+}
+//--------------------------------------------------------------------------------------------
+

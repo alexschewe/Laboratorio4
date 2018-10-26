@@ -1,0 +1,27 @@
+/*** BeginHeader */
+#use IO.lib
+
+#define OS_TIME_DLY_HMSM_EN       	1 //Habilito el delay
+
+#define STACK_CNT_256 				3 // number of 256 byte stacks
+#define STACK_CNT_512 				1 // number of 512 byte stacks
+#define STACK_CNT_1K				2
+#define STACK_CNT_2K				(2*CANTIDAD_USUARIOS)
+
+#define PRIO_LED					54
+#define PRIO_USUARIO_PC				9
+#define PRIO_USUARIO_ETH			10
+#define PRIO_TICKS					8
+
+#define	 TASK_STK_SIZE_256			256
+#define	 TASK_STK_SIZE_1024			1024
+#define	 TASK_STK_SIZE_2048			2048
+
+
+/*** EndHeader */
+
+
+
+
+
+

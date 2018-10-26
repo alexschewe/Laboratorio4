@@ -1,0 +1,613 @@
+/*** BeginHeader */
+#use LED.LIB
+#use RTC.LIB
+#use Utilities.lib
+
+struct Event
+{
+	int numero;
+	char command;
+	char param;
+	int frec;
+	unsigned long time;
+} ;
+
+#define CANTIDAD_VECES 			10
+#define ERROR_CONEXION			-1
+#define ETH						1
+#define USUPC					0
+
+#define ERROR					69
+
+#define PRENDER							1
+#define APAGAR					  		0
+#define CANTIDAD_EVENTOS				8
+#define VACIO							-1
+/*** EndHeader */
+//------------------------------DONDE HAY GET y PRINTF PONER UN SOCKET (PTR) Y MODIFICAR PARAMETROS FUNCION -----------------------------------------------
+/*** BeginHeader EVENTO_Menu */
+void EVENTO_Menu(int (*func_get)(),void (*func_print)(),struct Event *puntero_evento,int n, tcp_Socket *ptr);
+/*** EndHeader */
+void EVENTO_Menu(int (*func_get)(),void (*func_print)(),struct Event *puntero_evento,int n,tcp_Socket *ptr)
+{
+	int contador_eventos;
+	struct tm tiempo_actual;
+	unsigned long int time;
+	unsigned long int time_evento;
+	int i;
+	int frec;
+	char x_s[4];
+	char x;
+	char w_s[4];
+	char borrar[15];
+	int evento_borrar;
+	char error;
+	int error_conexion;
+	int hay_lugar;
+    char led;
+	char tarea;
+	char tarea_s[2];
+	char buffer_print[256];
+    char eventos_guardados;
+
+	error = 0;
+	error_conexion = 0;
+	tarea = 0;
+
+//---------------------MENU-----------------------------------------------------
+/*sprintf(buffer_print,"\nElija la tarea a realizar\n\t1 = Fijar Hora del reloj\n\t2 = Consultar Hora \n\t3 = Agregar Evento al calendario \n\t4 = Quitar Evento del calendario \n\t5 = Consultar lista de eventos activos del calendario\n\t6 = Consultar entradas analogicas\n\t");
+(*func_print)(buffer_menu);*/
+		(*func_print)("\nElija la tarea a realizar\n\t1 = Fijar Hora del reloj\n\t",ptr);
+		(*func_print)("2 = Consultar Hora \n\t3 = Agregar Evento al calendario \n\t",ptr);
+		(*func_print)("4 = Quitar Evento del calendario \n\t5 = Consultar lista de eventos activos del calendario\n\t",ptr);
+		(*func_print)("6 = Consultar entradas analogicas\n\t",ptr);
+		if (n == ETH)
+		{
+			error_conexion = (*func_get)(tarea_s,ptr);//------
+			while ( error_conexion == 0 )
+			{
+				OSTimeDlyHMSM (0,0,0,100);
+				error_conexion = (*func_get)(tarea_s,ptr);
+				printf("1111 - %d\n",error_conexion);
+			}
+			printf("2222 - %d\n",error_conexion);
+			if (error_conexion == ERROR_CONEXION)
+			{
+				printf("5555 - %d\n",error_conexion);
+				OSTimeDlyHMSM (0,0,0,200);
+				return ;
+			}	
+		}
+		else
+		{
+			(*func_get)(tarea_s,ptr);
+		}
+		error_conexion = 0;
+		tarea = atoi (tarea_s);
+//----------------------------------------------------------------------------
+//---------------------------------TAREAS-------------------------------------
+				switch (tarea)
+				{
+//--------------------------FIJAR HORA -------------------------------
+/*Espero a que el usuario ingrese los valores correctos para la hora (RTC_WRITE_TIME),
+esto me devuelve un valor y ese valor se lo asigno al RT, la funcion devuelve 0, ya que
+*/
+					case(1):
+					time = EVENTO_WRITE_Time(func_get, func_print, n,ptr);
+					if (time == ERROR)
+					{
+						return;
+					}
+					write_rtc (time);
+					(*func_print)("\n HORA CONFIGURADA\n",ptr);
+					time = read_rtc();
+					mktm ( &tiempo_actual, time);
+					sprintf(buffer_print,"\nFecha:%d/%d/%d\nHora %d:%d:%d\n" ,tiempo_actual.tm_mday, tiempo_actual.tm_mon, tiempo_actual.tm_year + 1900, tiempo_actual.tm_hour, tiempo_actual.tm_min, tiempo_actual.tm_sec);
+					(*func_print)(buffer_print,ptr);
+					return;
+//----------------------------------------------------------------------
+//---------------------------LEER HORA----------------------------------
+/*Lee la hora del RTC, luego transforma ese valor en un estructura tm, y luego imprime en pantalla*/
+					case(2):
+					time = read_rtc();
+					mktm ( &tiempo_actual, time);
+					sprintf(buffer_print,"\n Fecha:%d/%d/%d \n Hora %d:%d:%d \n" ,tiempo_actual.tm_mday, tiempo_actual.tm_mon, tiempo_actual.tm_year + 1900, tiempo_actual.tm_hour, tiempo_actual.tm_min, tiempo_actual.tm_sec);
+					(*func_print)(buffer_print,ptr);
+					return ;
+
+//----------------------------------------------------------------------
+//-------------------------AGREGAR EVENTO-------------------------------
+/*Busca un lugar libre para agregar el evento, cuando lo encuentra, el asigna ese valor (i) a
+evento.numero, le pide al usuario los datos de evento, que led prender y a que frecuencia,
+el usuario puede elegir unicamente un led, de elegir lo contrario, se le pedira que asgine
+nuevamente, se utiliza la varibale hay_lugar para determinar si se puede agregar el evento o no
+(antes de pedirle al usuario que ingrese todos los datos*/
+				case (3):
+					hay_lugar = 0;
+					for ( i = 0 ; i<(CANTIDAD_EVENTOS); i++)
+					{
+						if ( puntero_evento->numero == VACIO) //Cuando el lugar esta libre anoto el evento
+						{
+							puntero_evento->numero  = i; //Lo pongo en un valor distinto asi no me lo modifica otro usuario
+							time =  EVENTO_WRITE_Time( func_get,  func_print, n,ptr);
+							if (time ==ERROR)
+							{
+								return;
+							}
+							puntero_evento->time = time;
+							if (time == 0)
+							{
+								(*func_print) ("\n EVENTO NO CONFIGURADO \n",ptr);
+								puntero_evento->numero = VACIO;
+								return ;
+							}
+							puntero_evento->numero = i;
+							puntero_evento->command = PRENDER;
+							(*func_print) ("Elija un LED para el evento (Entre 0 Y 7)\n",ptr);
+							error = 0;
+							while (error < 1)
+							{
+								if (n == ETH)
+								{
+									while (error_conexion == (*func_get)(x_s,ptr))
+									{
+										OSTimeDlyHMSM (0,0,0,100);
+										error_conexion = (*func_get)(x_s,ptr);
+									}
+									if (error_conexion == ERROR_CONEXION)
+									{
+										return;
+									}	
+								}
+								else
+								{
+									(*func_get)(x_s,ptr);
+								}
+								error_conexion = 0;
+								x = atoi(x_s);
+								if (x<8 && x>=0)
+									{
+										puntero_evento->param = x;
+										(*func_print)("\n\t Led OK\n",ptr);
+										error = 1;
+									}
+								else
+									{
+										(*func_print)("\n\t El LED no es valido, ingrese un numero del 0 al 7 \n",ptr);
+										error = 0;
+									}
+							}
+
+							(*func_print) ("\n Elija frecuencia para prender y apagar el LED (Entre (1-9)*0.1s)\n",ptr);
+							error = 0;
+							while (error <1 )
+							{
+								if (n == ETH)
+								{
+									while (error_conexion == (*func_get)(w_s,ptr))
+									{
+										OSTimeDlyHMSM (0,0,0,100);
+										error_conexion = (*func_get)(w_s,ptr);
+									}
+									if (error_conexion == ERROR_CONEXION)
+									{
+										return;
+									}	
+								}
+								else
+								{
+									(*func_get)(w_s,ptr);
+								}
+								error_conexion = 0;
+								frec = atoi (w_s);
+								if (frec <10 && frec >=0)
+							   {
+									puntero_evento->frec = frec;      // frecuencia con la que desea prender y apagar el led
+									(*func_print)("\n\t Frecuencia OK\n",ptr);
+									sprintf(buffer_print,"\n EVENTO %d GUARDADO \t%d\n",puntero_evento->numero,i);
+									(*func_print)(buffer_print,ptr);
+									i = CANTIDAD_EVENTOS;
+									hay_lugar = 1;
+									error = 1;
+							   }
+							   else
+							   {
+									(*func_print)("\n\t LA FRECUENCIA NO ES VÁLIDA, elegir entre (1-9)*0.1s \n",ptr);
+									error = 0;
+							   }
+							}
+						}
+						puntero_evento ++; //AUMENTO LA DIRECCION DEL PUNTERO A NUMERO
+					}
+							if (hay_lugar == 0)
+							{
+								(*func_print)("\n NO HAY ESPACIO EN MEMORIA SUFICIENTE  \t\n",ptr);
+
+							}
+					return ;
+//----------------------------------------------------------------------
+//-----------------------------	BORRAR EVENTO --------------------------
+/*El usuario tiene que ingresar el numero del evento a borrar,
+chequeo que exista un evento en ese lugar (evento.numero != VACIO),
+si existe el evento, entonces a evento.numero le asigno el valor de VACIO,
+si no existe puede ser porque no hay un evento configurado o porque
+exede la cantidad de eventos maxima (CANTIDAD_EVENTOS).*/
+					case (4):
+						eventos_guardados=0;
+						for ( i = 0 ; i<CANTIDAD_EVENTOS; i++)
+						{
+							if (puntero_evento->numero != VACIO)
+							{
+								eventos_guardados++;
+							}
+							puntero_evento ++;
+						}
+						puntero_evento = puntero_evento - CANTIDAD_EVENTOS;
+						if (eventos_guardados == 0)
+						{
+						(*func_print)(" \n No hay eventos guardados",ptr);
+						break;
+						}
+						error = 0;
+						error_conexion = 0;
+						while (error <1 )
+						{
+							(*func_print)(" \n Elija el numero del evento a borrar",ptr);
+							(*func_get)(borrar);
+							if (n == ETH)
+								{
+									while (error_conexion == (*func_get)(borrar,ptr))
+									{
+										OSTimeDlyHMSM (0,0,0,100);
+										error_conexion = (*func_get)(borrar,ptr);
+									}
+									if (error_conexion == ERROR_CONEXION)
+									{
+										return;
+									}	
+								}
+								else
+								{
+									(*func_get)(borrar,ptr);
+								}
+							error_conexion = 0;
+							evento_borrar = atoi(borrar);
+							if (evento_borrar < CANTIDAD_EVENTOS && evento_borrar>= 0)
+							{
+								puntero_evento = puntero_evento + evento_borrar; //AUMENTO LA DIRRECCION DEL PUNTERO A LA QUE QUIERE EL USUARIO
+								if( puntero_evento->numero != VACIO)
+								{
+									(*func_print)("Evento borrado correctamente\n",ptr);
+									puntero_evento->numero =  VACIO;
+									error = 1;
+								}
+								else
+								{
+									(*func_print)("No existe evento\n Lista de eventos:",ptr);
+									puntero_evento = puntero_evento - evento_borrar;
+									for ( i = 0 ; i<CANTIDAD_EVENTOS; i++)
+									{
+										if (puntero_evento->numero != VACIO)
+										{
+											time_evento = puntero_evento->time;
+											mktm ( &tiempo_actual, time_evento);
+											sprintf(buffer_print,"\nEvento %d:\n\tFecha:%d/%d/%d \n\tHora %d:%d:%d\n\tLed: %d\t Frec.:%d ms\n" ,i,tiempo_actual.tm_mday, tiempo_actual.tm_mon, tiempo_actual.tm_year+1900, tiempo_actual.tm_hour, tiempo_actual.tm_min, tiempo_actual.tm_sec,puntero_evento->param,puntero_evento->frec);
+											(*func_print)(buffer_print,ptr);
+
+										}
+										puntero_evento ++;
+									}
+									puntero_evento = puntero_evento - CANTIDAD_EVENTOS;
+									error = 0;
+								}
+							}
+							else
+							{
+								(*func_print)("\n\t El numero de evento no es valido, ingrese uno del 0 al 7 \n",ptr);
+
+								return;
+							}
+						}
+						return;
+//----------------------------------------------------------------------
+//-------------------------- MOSTRAR EVENTOS----------------------------
+/*Imprime en pantalla unicamente los eventos que tengan el valor de evento.numero != VACIO*/
+
+				case(5):
+					contador_eventos = 0;
+					for ( i = 0 ; i<CANTIDAD_EVENTOS; i++)
+					{
+						if (puntero_evento->numero == VACIO)
+						{
+							contador_eventos++;
+							if(contador_eventos == CANTIDAD_EVENTOS)
+							{
+								(*func_print)("No hay eventos programados",ptr);
+							}
+						}
+						if (puntero_evento->numero != VACIO)
+						{
+							time_evento = puntero_evento->time;
+							mktm ( &tiempo_actual, time_evento);
+							sprintf(buffer_print,"\nEvento %d:\n\tFecha:%d/%d/%d \n\tHora %d:%d:%d\n\tLed: %d\t Frec.:%d Hz\n" ,i,tiempo_actual.tm_mday, tiempo_actual.tm_mon, tiempo_actual.tm_year+1900, tiempo_actual.tm_hour, tiempo_actual.tm_min, tiempo_actual.tm_sec,puntero_evento->param,puntero_evento->frec);
+							(*func_print)(buffer_print,ptr);
+						}
+						puntero_evento ++;
+					}
+					return;
+//----------------------------------------------------------------------
+//--------------------------ENTRADAS ANALOGICAS-------------------------
+/*Imprime en pantalla ambas entradas analogicas*/
+				case (6):
+					sprintf(buffer_print,"Input 0 = %d\nInput 1 = %d\n", IO_getAnalogInput( 0 ),IO_getAnalogInput( 1 ));
+					(*func_print)(buffer_print,ptr);
+					return;
+			//----------------------------------------------------------------------
+					default:
+					(*func_print)("ERROR numero equivocado\n",ptr);
+					return;
+         }
+	//----------------------------------------------------------------------
+
+}
+
+
+
+//-------------------Escribir en RTC-------------------------------
+/* La funcion le solicita al usuario que ingrese los valores del evento,
+chequea que cada valor asignado sea valido, ya sea en la cantidad de digitos
+o que no sea en fechas pasadas, tambien le permite al usuario cancelar
+el ingreso del evento por medio de 'ESC'.
+La funcion devuelve el valor de la fecha del evento, o devuelve 0 si el
+el usuario cancelo el ingreso del evento.*/
+/*** BeginHeader EVENTO_WRITE_Time */
+unsigned long int 	EVENTO_WRITE_Time(int (*func_get)(), void (*func_print)(), int n,tcp_Socket *ptr);
+/*** EndHeader */
+unsigned long int	EVENTO_WRITE_Time(int (*func_get)(), void (*func_print)(), int n,tcp_Socket *ptr)
+{
+	struct tm tiempo_actual;
+	struct tm tiempo;
+	char segundos[15];
+	char minutos[15];
+	char hora[15];
+	char dia[15];
+	char mes[15];
+	char ano[15];
+	int error_var;
+	unsigned long int time;
+	unsigned long int tiempo_devolver;
+	int chequeo_dia;
+	char chequeo_dia_para_func;
+	char chequeo_mes_para_func;
+	int vueltas;
+	char chequeo_ano_para_func;
+	char error;
+	char error_conexion;
+	error_conexion = 0;
+	error = 0;
+	vueltas = 0;
+
+
+	error_var = 0;
+
+	while (vueltas < 6)
+	{
+		switch (error_var)
+		{
+			case (0):
+			time = read_rtc();
+			mktm ( &tiempo_actual, time);
+			(*func_print) ("Ingrese Ano \n",ptr);
+			if (n == ETH)
+			{
+				while (error_conexion == (*func_get)(ano,ptr))
+				{
+					OSTimeDlyHMSM (0,0,0,100);
+					error_conexion = (*func_get)(ano,ptr);
+				}
+				if (error_conexion == ERROR_CONEXION)
+				{
+					return ERROR;
+				}	
+			}
+			else
+			{
+				(*func_get)(ano,ptr);
+			}
+			error_conexion = 0;
+			if (atoi (ano) <= MAX_ANO && atoi (ano) >= MIN_ANO)
+			{
+				tiempo.tm_year = atoi (ano) - 1900;
+				if (tiempo.tm_year >= tiempo_actual.tm_year)
+				{
+					error_var = 1;
+					(*func_print) ("\n\t Ano Guardado\n ",ptr);
+				}
+			}
+			if(error_var == 0)
+			{
+				(*func_print) ("\n\t El ano ingresado no es valido, ingrese ano nuevamente \n ",ptr);
+				break;
+			}
+			case (1):
+			time = read_rtc();
+			mktm ( &tiempo_actual, time);
+			(*func_print) ("Ingrese Mes \n",ptr);
+			if (n == ETH)
+			{
+				while (error_conexion == (*func_get)(mes,ptr))
+				{
+					OSTimeDlyHMSM (0,0,0,100);
+					error_conexion = (*func_get)(mes,ptr);
+				}
+				if (error_conexion == ERROR_CONEXION)
+				{
+					return ERROR;
+				}	
+			}
+			else
+			{
+				(*func_get)(mes,ptr);
+			}
+			error_conexion = 0;
+			
+			if (atoi (mes) <= MAX_MES && atoi (mes)>= MIN_MES)
+			{
+				tiempo.tm_mon = atoi (mes);
+				if ( tiempo.tm_year > tiempo_actual.tm_year )
+				{
+					error_var = 2 ;
+					(*func_print) ("\n\t Mes Guardado\n ",ptr);
+				}
+				else if (tiempo.tm_mon >= tiempo_actual.tm_mon)
+				{
+					error_var = 2;
+					tiempo.tm_mon = atoi (mes);
+					(*func_print) ("\n\t Mes Guardado\n ",ptr);
+				}
+			}
+			if(error_var == 1)
+			{
+				(*func_print) ("\n\t El Mes ingresado no es valido, ingrese Mes nuevamente \n ",ptr);
+				break;
+			}
+			case (2):
+			time = read_rtc();
+			mktm ( &tiempo_actual, time);
+			(*func_print) ("Ingrese Dia \n",ptr);
+			if (n == ETH)
+			{
+				while (error_conexion == (*func_get)(dia,ptr))
+				{
+					OSTimeDlyHMSM (0,0,0,100);
+					error_conexion = (*func_get)(dia,ptr);
+				}
+				if (error_conexion == ERROR_CONEXION)
+				{
+					return ERROR;
+				}	
+			}
+			else
+			{
+				(*func_get)(dia,ptr);
+			}
+			error_conexion = 0;
+			if (atoi (dia) <= MAX_DIA && atoi (dia) >= MIN_DIA )
+			{
+				tiempo.tm_mday = atoi (dia);
+				chequeo_dia_para_func = tiempo.tm_mday;
+				chequeo_mes_para_func = tiempo.tm_mon;
+				chequeo_ano_para_func = tiempo.tm_year;
+				chequeo_dia = UT_CHEQUEO_DIA (chequeo_mes_para_func, chequeo_dia_para_func, chequeo_ano_para_func);
+				if (chequeo_dia == 1 )
+				{
+					if (tiempo.tm_mon > tiempo_actual.tm_mon || tiempo.tm_year > tiempo_actual.tm_year)
+					{
+						error_var = 3;
+						(*func_print) ("\n\t Dia Guardado\n ",ptr);
+					}
+					else if (tiempo.tm_mday >= tiempo_actual.tm_mday)
+					{
+						error_var = 3;
+						(*func_print) ("\n\t Dia Guardado\n ",ptr);
+					}
+				}
+			}
+			 if(error_var == 2)
+			{
+				(*func_print) ("\n\t El Dia ingresado no es valido, ingrese Dia nuevamente \n ",ptr);
+				break;
+			}
+			case (3):
+			time = read_rtc();
+			mktm ( &tiempo_actual, time);
+			(*func_print) ("Ingrese hora \n",ptr);
+			if (n == ETH)
+			{
+				while (error_conexion == (*func_get)(hora,ptr))
+				{
+					OSTimeDlyHMSM (0,0,0,100);
+					error_conexion = (*func_get)(hora,ptr);
+				}
+				if (error_conexion == ERROR_CONEXION)
+				{
+					return ERROR;
+				}	
+			}
+			else
+			{
+				(*func_get)(hora,ptr);
+			}
+			error_conexion = 0;
+			if (atoi (hora) <= MAX_HORA && atoi (hora) >= MIN_HORA )
+			{
+				tiempo.tm_hour = atoi (hora);
+				if ( tiempo.tm_year > tiempo_actual.tm_year || tiempo.tm_mon > tiempo_actual.tm_mon || tiempo.tm_mday > tiempo_actual.tm_mday)
+				{
+					error_var = 4;
+					(*func_print) ("\n\t Hora Guardada\n ",ptr);
+				}
+				else if (tiempo.tm_hour >= tiempo_actual.tm_hour)
+				{
+					error_var = 4;
+					(*func_print) ("\n\t Hora Guardada\n ",ptr);
+				}
+			}
+			if(error_var == 3)
+			{
+				(*func_print) ("\n\t La Hora ingresada no es valida, ingrese Hora nuevamente \n ",ptr);
+				break;
+			}
+			case (4):
+			time = read_rtc();
+			mktm ( &tiempo_actual, time);
+			(*func_print) ("Ingrese Minutos \n",ptr);
+			if (n == ETH)
+			{
+				while (error_conexion == (*func_get)(minutos,ptr))
+				{
+					OSTimeDlyHMSM (0,0,0,100);
+					error_conexion = (*func_get)(minutos,ptr);
+				}
+				if (error_conexion == ERROR_CONEXION)
+				{
+					return ERROR;
+				}	
+			}
+			else
+			{
+				(*func_get)(minutos,ptr);
+			}
+			error_conexion = 0;
+			if (atoi (minutos) <= MAX_MINSEC && atoi (minutos) >= MIN_MINSEC)
+			{
+				tiempo.tm_min = atoi (minutos);
+				if ( tiempo.tm_year > tiempo_actual.tm_year || tiempo.tm_mon > tiempo_actual.tm_mon || tiempo.tm_mday > tiempo_actual.tm_mday || tiempo.tm_hour > tiempo_actual.tm_hour)
+				{
+					error_var = 5;
+					(*func_print) ("\n\t Minutos Guardados\n ",ptr);
+				}
+				else if (tiempo.tm_min >= tiempo_actual.tm_min)
+				{
+					error_var = 5 ;
+					(*func_print) ("\n\t Minutos Guardados\n ",ptr);
+				}
+			}
+			if(error_var == 4)
+			{
+				(*func_print) ("\n\t El minuto ingresado no es valido, ingrese minuto nuevamente \n ",ptr);
+				break;
+			}
+			case (5):
+			tiempo.tm_sec  = 0;
+			error_var ++;
+			tiempo_devolver = mktime(&tiempo);
+			vueltas = 6;
+			break;
+		}
+	}
+	tiempo_devolver = mktime(&tiempo);
+	return tiempo_devolver;
+}
+//--------------------------------------------------------------------------------------------------------------------
+
