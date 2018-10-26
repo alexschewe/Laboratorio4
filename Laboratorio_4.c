@@ -12,16 +12,17 @@ void TICKS(void *data);
 void ALARMA (void);
 struct Event evento [CANTIDAD_EVENTOS+1];
 
-
+OS_EVENT *Semaforo;
 void main()
 {
+
 	int i;
 	HW_init();
 	for ( i = 0 ; i<CANTIDAD_EVENTOS; i++)
 	{
 		evento[i].numero = VACIO;
     }
-	OS_EVENT* Semaforo;
+
 	OSInit();
 
 	OSTaskCreate(LED_OS_Prender_Led_Rojo,NULL,TASK_STK_SIZE_256,PRIO_LED);
@@ -32,8 +33,8 @@ void main()
 		OSTaskCreate(TICKS,&echosock[i],TASK_STK_SIZE_2048,PRIO_TICKS);
 		OSTaskCreate(MENU_ETHERNET,&echosock[i],TASK_STK_SIZE_2048,PRIO_USUARIO_ETH);
 	}
-	Semaforo = OSSemCreat(1);
-	
+	Semaforo = OSSemCreate(1);
+
 	OSStart();
 
 }

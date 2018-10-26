@@ -124,6 +124,7 @@ nuevamente, se utiliza la varibale hay_lugar para determinar si se puede agregar
 (antes de pedirle al usuario que ingrese todos los datos*/
 				case (3):
 					hay_lugar = 0;
+					OSSemPend(Semaforo,T_ESPERA_SEM,semaforo_error);
 					for ( i = 0 ; i<(CANTIDAD_EVENTOS); i++)
 					{
 						if ( puntero_evento->numero == VACIO) //Cuando el lugar esta libre anoto el evento
@@ -228,7 +229,7 @@ nuevamente, se utiliza la varibale hay_lugar para determinar si se puede agregar
 							if (hay_lugar == 0)
 							{
 								(*func_print)("\n NO HAY ESPACIO EN MEMORIA SUFICIENTE  \t\n",ptr);
-
+								OSSemPost(Semaforo);
 							}
 					return ;
 //----------------------------------------------------------------------
